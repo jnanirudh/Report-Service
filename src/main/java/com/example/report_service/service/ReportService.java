@@ -1,14 +1,12 @@
 package com.example.report_service.service;
 
 import com.example.report_service.dao.ReportDao;
-import com.example.report_service.feign.QuizInterface;
 import com.example.report_service.model.Report;
-import com.example.report_service.model.Response;
+import com.example.report_service.model.ReportDTO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 
@@ -18,33 +16,26 @@ public class ReportService {
     @Autowired
     ReportDao reportDao;
 
-    @Autowired
-    QuizInterface quizInterface; // Using the name from the feign package
-
-    @Autowired
-    private RestTemplate restTemplate; // Or WebClient
-
-    public void startProctoring(String studentName, Integer quizId) {
-        String url = "http://localhost:8000/start-proctoring?studentName=" + studentName + "&quizId=" + quizId;
-        restTemplate.postForEntity(url, null, String.class);
-    }
-
-    public void stopProctoring() {
-        String url = "http://localhost:8000/stop-proctoring";
-        restTemplate.postForEntity(url, null, String.class);
-    }
-
-    public ResponseEntity<String> submitQuiz(String studentName, Integer quizId, List<Response> responses) {
-        // Call Question Service for score
-        Integer score = quizInterface.getScore(responses).getBody();
-
-        // Save result
+    // Called by Quiz-service via Feign after scoring
+    public ResponseEntity<String> saveReport(ReportDTO reportDTO) {
         Report report = new Report();
-        report.setStudentName(studentName);
-        report.setQuizId(quizId);
-        report.setScore(score);
+        report.setStudentName(reportDTO.getStudentName());
+        report.setQuizId(reportDTO.getQuizId());
+        report.setScore(reportDTO.getScore());
         reportDao.save(report);
 
-        return new ResponseEntity<>("Success! Score: " + score, HttpStatus.CREATED);
+        return new ResponseEntity<>("Report saved successfully", HttpStatus.CREATED);
+    }
+
+    // Get all reports for a student
+    public ResponseEntity<List<Report>> getReportsByStudent(String studentName) {
+        List<Report> reports = reportDao.findByStudentName(studentName);
+        return ResponseEntity.ok(reports);
+    }
+
+    // Get all reports for a specific quiz
+    public ResponseEntity<List<Report>> getReportsByQuiz(Integer quizId) {
+        List<Report> reports = reportDao.findByQuizId(quizId);
+        return ResponseEntity.ok(reports);
     }
 }
